@@ -60,12 +60,18 @@ npm run seed:reset      # mevcut veriyi silip yeniden doldur
 npm test                # 50 test
 ```
 
-## Yayına alma (tek link)
+## Yayına alma (tek link, ücretsiz)
 
-Backend'in `server.js` zaten `frontend/` klasörünü statik olarak sunuyor, bu yüzden sadece backend'i dağıtman yeterli:
+Backend'in `server.js` `frontend/` klasörünü de statik olarak sunuyor, bu yüzden tek servis yeterli: **Render (uygulama) + Turso (veritabanı)**.
+Render'ın ücretsiz planında disk kalıcı olmadığı için SQLite dosyası yerine Turso kullanılır; `TURSO_DATABASE_URL` tanımlıysa uygulama otomatik Turso'ya bağlanır, değilse yerel SQLite dosyasını kullanır.
 
-- **Render:** `render.yaml` zaten backend'de var. `npm start` komutu ile çalışır.
-- **Diğer platformlar:** `npm install && npm start` çalıştırılmalı; `PORT` ortam değişkeni sunucu tarafından verilir.
+1. **Turso:** hesap aç, bir veritabanı oluştur; adresini (`libsql://...`) ve belirtecini (token) al.
+   (Turso CLI: `turso db create ortak-gider`, `turso db show ortak-gider --url`, `turso db tokens create ortak-gider`)
+2. **Render:** *New → Blueprint* ile bu depoyu seç (kökteki `render.yaml` okunur). Panelde `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` ve (isteğe bağlı) `ADMIN_EMAIL` değerlerini gir.
+3. İlk açılışta tablolar otomatik oluşturulur. Örnek veri istersen kendi bilgisayarında:
+   `TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... npm --prefix backend run seed`
+
+Ücretsiz Render servisi 15 dakika boşta kalınca uyur; ilk istek yaklaşık 1 dakika sürebilir. Diğer platformlarda: `npm --prefix backend install && npm start`; `PORT` ortam değişkenini platform verir.
 
 `.env` dosyasını asla repoya ekleme; sadece `.env.example`'i paylaş.
 

@@ -79,19 +79,19 @@ test('rol: kayıt isteğindeki role alanı yok sayılır (mass assignment), yeni
   const r = await call('POST', '/auth/register', { name: 'Sinsi', email: 'sinsi@example.com', password: 'sifre1234', role: 'admin' });
   assert.equal(r.status, 201);
   assert.equal(r.data.user.role, 'user');
-  assert.equal(data.findUserById(r.data.user.id).role, 'user');
+  assert.equal((await data.findUserById(r.data.user.id)).role, 'user');
   assert.equal((await call('GET', '/admin/users', null, r.data.token)).status, 403);
 });
 
 test('rol tabanlı erişim: oturumsuz 401, kullanıcı 403, yönetici 200; rol her istekte veritabanından okunur', async () => {
   const user = await register('Normal', 'normal@example.com');
   const boss = await register('Patron', 'patron@example.com');
-  data.setUserRole(boss.user.id, 'admin'); // ilk yönetici sunucu tarafında atanır
+  await data.setUserRole(boss.user.id, 'admin'); // ilk yönetici sunucu tarafında atanır
 
   assert.equal((await call('GET', '/admin/users')).status, 401);
   assert.equal((await call('GET', '/admin/users', null, user.token)).status, 403);
   assert.equal((await call('PATCH', `/admin/users/${user.user.id}/role`, { role: 'admin' }, user.token)).status, 403, 'kullanıcı kendini yönetici yapamaz');
-  assert.equal(data.findUserById(user.user.id).role, 'user');
+  assert.equal((await data.findUserById(user.user.id)).role, 'user');
 
   const list = await call('GET', '/admin/users', null, boss.token);
   assert.equal(list.status, 200);
@@ -106,7 +106,7 @@ test('rol tabanlı erişim: oturumsuz 401, kullanıcı 403, yönetici 200; rol h
   assert.equal((await call('PATCH', '/admin/users/yok/role', { role: 'user' }, boss.token)).status, 404);
   assert.equal((await call('PATCH', `/admin/users/${user.user.id}/role`, { role: 'admin' }, boss.token)).status, 200);
   assert.equal((await call('GET', '/admin/users', null, user.token)).status, 200, 'yeni yönetici aynı oturumla erişir');
-  data.setUserRole(user.user.id, 'user');
+  await data.setUserRole(user.user.id, 'user');
   assert.equal((await call('GET', '/admin/users', null, user.token)).status, 403, 'yetki geri alınınca erişim hemen kesilir');
 });
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const frontendPath = join(__dirname, '..', 'frontend');
+const frontendPath = join(__dirname, '..', '..', 'frontend');
 
 const app = createApp();
 

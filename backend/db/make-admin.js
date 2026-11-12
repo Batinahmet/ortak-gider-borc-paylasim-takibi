@@ -10,10 +10,10 @@ if (!email || !['admin', 'user'].includes(role)) {
   console.error('Kullanım: npm run admin:promote -- <e-posta> [admin|user]');
   process.exit(1);
 }
-const user = findUserByEmail(email.toLowerCase());
+const user = await findUserByEmail(email.toLowerCase());
 if (!user) {
   console.error(`Kullanıcı bulunamadı: ${email}`);
   process.exit(1);
 }
-setUserRole(user.id, role);
+await setUserRole(user.id, role);
 console.log(`${user.email} artık '${role}' rolünde.`);

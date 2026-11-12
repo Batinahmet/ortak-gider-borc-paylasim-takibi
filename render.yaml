@@ -1,0 +1,20 @@
+# Render.com ücretsiz web servisi (Blueprint, depo kökünde olmalı). Gizli değerler panelden girilir, depoya yazılmaz.
+# Render'ın ücretsiz planında disk kalıcı değildir; bu yüzden veriler Turso'da (libSQL) saklanır.
+# Frontend ayrıca yayınlanmaz: sunucu frontend/ klasörünü aynı adresten sunar.
+services:
+  - type: web
+    name: ortak-gider
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix backend install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.13.0
+      - key: TURSO_DATABASE_URL
+        sync: false   # örn. libsql://veritabani-adin-kullanici.turso.io
+      - key: TURSO_AUTH_TOKEN
+        sync: false   # Turso'dan alınan veritabanı belirteci
+      - key: ADMIN_EMAIL
+        sync: false   # ilk yönetici hesabının e-postası

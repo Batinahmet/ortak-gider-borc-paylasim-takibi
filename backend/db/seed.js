@@ -35,47 +35,47 @@ const ADMIN = { id: 'u_admin', name: 'Yönetici Örnek', email: 'admin@example.c
 const nameOf = (id) => USERS.find((u) => u.id === id).name;
 const tl = (k) => `${(k / 100).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
 
-function clearAll() {
-  tx(() => {
-    for (const t of [...TABLES].reverse()) db.exec(`DELETE FROM ${t}`);
-    db.exec("DELETE FROM sqlite_sequence WHERE name = 'activities'");
+async function clearAll() {
+  await tx(async () => {
+    for (const t of [...TABLES].reverse()) await db.exec(`DELETE FROM ${t}`);
+    await db.exec("DELETE FROM sqlite_sequence WHERE name = 'activities'");
   });
 }
 
 /** Örnek veriyi ekler ve özet sayıları döndürür. Veritabanı doluysa reset olmadan hata verir. */
 export async function seed({ reset = false } = {}) {
-  if (data.countUsers() > 0) {
+  if ((await data.countUsers()) > 0) {
     if (!reset) throw new Error('Veritabanı boş değil. Silip yeniden doldurmak için: npm run seed:reset');
-    clearAll();
+    await clearAll();
   }
   const passwordHash = await hashPassword(DEMO_PASSWORD);
   const DAY = 86_400_000;
   const now = Date.now();
   const ago = (days) => now - days * DAY;
 
-  const addExpense = (groupId, e, shares, extra = {}) => {
-    data.insertExpense({ groupId, createdBy: e.paidBy, splitType: 'equal', createdAt: ago(e.daysAgo), ...e, ...extra }, shares);
-    data.logActivity(groupId, e.paidBy, `${nameOf(e.paidBy)}, "${e.title}" harcamasını ekledi (${tl(e.amount)})`, ago(e.daysAgo));
+  const addExpense = async (groupId, e, shares, extra = {}) => {
+    await data.insertExpense({ groupId, createdBy: e.paidBy, splitType: 'equal', createdAt: ago(e.daysAgo), ...e, ...extra }, shares);
+    await data.logActivity(groupId, e.paidBy, `${nameOf(e.paidBy)}, "${e.title}" harcamasını ekledi (${tl(e.amount)})`, ago(e.daysAgo));
   };
 
-  tx(() => {
-    for (const u of USERS) data.createUser({ ...u, passwordHash, createdAt: ago(40) });
-    data.createUser({ ...ADMIN, passwordHash, role: 'admin', createdAt: ago(41) });
+  await tx(async () => {
+    for (const u of USERS) await data.createUser({ ...u, passwordHash, createdAt: ago(40) });
+    await data.createUser({ ...ADMIN, passwordHash, role: 'admin', createdAt: ago(41) });
 
     // ----- Grup 1: Ev arkadaşları (4 kişi) -----
     const ev = 'g_ev';
     const evMembers = USERS.map((u) => u.id);
-    data.createGroup({ id: ev, name: 'Ev Arkadaşları', ownerId: 'u_ayse', inviteCode: 'EVGRUBU2', createdAt: ago(35) });
-    evMembers.forEach((u, i) => data.addMember(ev, u, ago(35 - i)));
+    await data.createGroup({ id: ev, name: 'Ev Arkadaşları', ownerId: 'u_ayse', inviteCode: 'EVGRUBU2', createdAt: ago(35) });
+    for (const [i, u] of evMembers.entries()) await data.addMember(ev, u, ago(35 - i));
 
     // 1) Eşit bölüşüm
-    addExpense(ev, { id: 'e_market', title: 'Market alışverişi', amount: 124850, paidBy: 'u_ayse', daysAgo: 20 }, splitEqual(124850, evMembers));
-    addExpense(ev, { id: 'e_elektrik', title: 'Elektrik faturası', amount: 86000, paidBy: 'u_mehmet', daysAgo: 15 }, splitEqual(86000, evMembers));
+    await addExpense(ev, { id: 'e_market', title: 'Market alışverişi', amount: 124850, paidBy: 'u_ayse', daysAgo: 20 }, splitEqual(124850, evMembers));
+    await addExpense(ev, { id: 'e_elektrik', title: 'Elektrik faturası', amount: 86000, paidBy: 'u_mehmet', daysAgo: 15 }, splitEqual(86000, evMembers));
     // 2) Yüzdeyle bölüşüm (Can interneti daha çok kullanıyor)
-    addExpense(ev, { id: 'e_internet', title: 'İnternet faturası', amount: 45000, paidBy: 'u_zeynep', daysAgo: 12, splitType: 'percent' },
+    await addExpense(ev, { id: 'e_internet', title: 'İnternet faturası', amount: 45000, paidBy: 'u_zeynep', daysAgo: 12, splitType: 'percent' },
       splitPercent(45000, { u_ayse: 20, u_mehmet: 20, u_zeynep: 20, u_can: 40 }));
     // 3) Tutarla bölüşüm
-    addExpense(ev, { id: 'e_temizlik', title: 'Temizlik malzemeleri', amount: 32000, paidBy: 'u_can', daysAgo: 8, splitType: 'exact' },
+    await addExpense(ev, { id: 'e_temizlik', title: 'Temizlik malzemeleri', amount: 32000, paidBy: 'u_can', daysAgo: 8, splitType: 'exact' },
       splitExact(32000, { u_ayse: 10000, u_mehmet: 7000, u_zeynep: 8000, u_can: 7000 }));
     // 4) Kalem bazlı bölüşüm (fiş): şampuan sadece Zeynep'in
     const fis = [
@@ -85,35 +85,37 @@ export async function seed({ reset = false } = {}) {
       { name: 'Peynir', price: 12000, to: 'all' },
     ];
     const { total, shares } = splitItems(fis, evMembers);
-    addExpense(ev, { id: 'e_fis', title: 'Market fişi', amount: total, paidBy: 'u_ayse', daysAgo: 3, splitType: 'items', items: fis }, shares);
+    await addExpense(ev, { id: 'e_fis', title: 'Market fişi', amount: total, paidBy: 'u_ayse', daysAgo: 3, splitType: 'items', items: fis }, shares);
 
-    data.insertSettlement({ id: 's_ev1', groupId: ev, fromUser: 'u_zeynep', toUser: 'u_ayse', amount: 25000, createdAt: ago(2) });
-    data.logActivity(ev, 'u_zeynep', `${nameOf('u_zeynep')}, ${nameOf('u_ayse')} kişisine ${tl(25000)} ödedi`, ago(2));
+    await data.insertSettlement({ id: 's_ev1', groupId: ev, fromUser: 'u_zeynep', toUser: 'u_ayse', amount: 25000, createdAt: ago(2) });
+    await data.logActivity(ev, 'u_zeynep', `${nameOf('u_zeynep')}, ${nameOf('u_ayse')} kişisine ${tl(25000)} ödedi`, ago(2));
 
     // Öğrenilmiş kurallar (yapay zeka önerisini düzeltir)
-    data.upsertRule(ev, 'süt', 'ortak');
-    data.upsertRule(ev, 'şampuan', 'kisisel');
-    data.upsertRule(ev, 'sigara', 'kisisel');
+    await data.upsertRule(ev, 'süt', 'ortak');
+    await data.upsertRule(ev, 'şampuan', 'kisisel');
+    await data.upsertRule(ev, 'sigara', 'kisisel');
 
     // ----- Grup 2: Tatil grubu (3 kişi) -----
     const tatil = 'g_tatil';
     const tatilMembers = ['u_mehmet', 'u_can', 'u_zeynep'];
-    data.createGroup({ id: tatil, name: 'Tatil Grubu', ownerId: 'u_mehmet', inviteCode: 'TATILGRP', createdAt: ago(25) });
-    tatilMembers.forEach((u, i) => data.addMember(tatil, u, ago(25 - i)));
-    addExpense(tatil, { id: 'e_otel', title: 'Otel', amount: 480000, paidBy: 'u_mehmet', daysAgo: 10 }, splitEqual(480000, tatilMembers));
+    await data.createGroup({ id: tatil, name: 'Tatil Grubu', ownerId: 'u_mehmet', inviteCode: 'TATILGRP', createdAt: ago(25) });
+    for (const [i, u] of tatilMembers.entries()) await data.addMember(tatil, u, ago(25 - i));
+    await addExpense(tatil, { id: 'e_otel', title: 'Otel', amount: 480000, paidBy: 'u_mehmet', daysAgo: 10 }, splitEqual(480000, tatilMembers));
     // 135075 kuruş 3'e tam bölünmez: artan kuruş en büyük kalan yöntemiyle dağıtılır
-    addExpense(tatil, { id: 'e_yemek', title: 'Akşam yemeği', amount: 135075, paidBy: 'u_can', daysAgo: 9 }, splitEqual(135075, tatilMembers));
-    data.insertSettlement({ id: 's_tatil1', groupId: tatil, fromUser: 'u_can', toUser: 'u_mehmet', amount: 50000, createdAt: ago(5) });
-    data.logActivity(tatil, 'u_can', `${nameOf('u_can')}, ${nameOf('u_mehmet')} kişisine ${tl(50000)} ödedi`, ago(5));
+    await addExpense(tatil, { id: 'e_yemek', title: 'Akşam yemeği', amount: 135075, paidBy: 'u_can', daysAgo: 9 }, splitEqual(135075, tatilMembers));
+    await data.insertSettlement({ id: 's_tatil1', groupId: tatil, fromUser: 'u_can', toUser: 'u_mehmet', amount: 50000, createdAt: ago(5) });
+    await data.logActivity(tatil, 'u_can', `${nameOf('u_can')}, ${nameOf('u_mehmet')} kişisine ${tl(50000)} ödedi`, ago(5));
   });
 
-  return Object.fromEntries(TABLES.map((t) => [t, db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n]));
+  const entries = [];
+  for (const t of TABLES) entries.push([t, (await db.get(`SELECT COUNT(*) AS n FROM ${t}`)).n]);
+  return Object.fromEntries(entries);
 }
 
 const q = (v) => (v === null || v === undefined ? 'NULL' : typeof v === 'number' ? String(v) : `'${String(v).replaceAll("'", "''")}'`);
 
 /** Mevcut veritabanı içeriğini INSERT ifadeleri olarak döndürür. Önce migration çalıştırılmış olmalıdır. */
-export function dumpSql() {
+export async function dumpSql() {
   const out = [
     '-- Ortak Gider: sentetik örnek veri dökümü (gerçek kişisel veri yoktur, KVKK uyumlu).',
     '-- Önce db/migrations/ altındaki tüm dosyalar sırayla (001, 002, ...), sonra bu dosya çalıştırılır.',
@@ -122,7 +124,7 @@ export function dumpSql() {
     'BEGIN;',
   ];
   for (const t of TABLES) {
-    const rows = db.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all();
+    const rows = await db.all(`SELECT * FROM ${t} ORDER BY rowid`);
     if (!rows.length) continue;
     const cols = Object.keys(rows[0]);
     for (const r of rows) out.push(`INSERT INTO ${t} (${cols.join(', ')}) VALUES (${cols.map((c) => q(r[c])).join(', ')});`);
@@ -137,7 +139,7 @@ if (isMain) {
     console.log('Örnek veri eklendi:', JSON.stringify(counts));
     if (dumpArg) {
       const file = dumpArg.slice('--dump='.length);
-      writeFileSync(file, dumpSql());
+      writeFileSync(file, await dumpSql());
       console.log('SQL dökümü yazıldı:', file);
     } else {
       console.log(`Giriş için: ayse@example.com (kullanıcı) veya admin@example.com (yönetici) / ${DEMO_PASSWORD}`);

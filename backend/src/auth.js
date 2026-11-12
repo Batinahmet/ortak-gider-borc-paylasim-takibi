@@ -47,15 +47,13 @@ export const publicUser = (u) => ({ id: u.id, name: u.name, email: u.email, role
 // ---------- Oturum (sunucuda tutulan, iptal edilebilir rastgele belirteç) ----------
 
 /** Yeni oturum açar; ham belirteç sadece istemciye döner, veritabanında özeti saklanır. */
-export function newSession(userId, now = Date.now()) {
+export async function newSession(userId, now = Date.now()) {
   const token = randomBytes(32).toString('hex');
-  data.createSession(sha256(token), userId, now + SESSION_MS);
+  await data.createSession(sha256(token), userId, now + SESSION_MS);
   return token;
 }
 
-export function destroySession(token) {
-  data.deleteSession(sha256(token));
-}
+export const destroySession = (token) => data.deleteSession(sha256(token));
 
 export const purgeExpiredSessions = (now = Date.now()) => data.deleteExpiredSessions(now);
 
@@ -73,18 +71,18 @@ function assertNotLocked(row, now) {
  * hatada hesap LOCK_MS süreyle kilitlenir. Kilitliyken doğru parola da kabul edilmez.
  */
 export async function login(email, password, now = Date.now()) {
-  const user = data.findUserByEmail(email);
+  const user = await data.findUserByEmail(email);
   if (!user) {
     await verifyPassword(password, await dummyHash());
     throw new HttpError(401, GENERIC_LOGIN_ERROR);
   }
   assertNotLocked(user, now);
   if (!(await verifyPassword(password, user.password_hash))) {
-    data.recordFailedLogin(user.id, MAX_FAILED_LOGINS, LOCK_MS, now);
+    await data.recordFailedLogin(user.id, MAX_FAILED_LOGINS, LOCK_MS, now);
     throw new HttpError(401, GENERIC_LOGIN_ERROR);
   }
-  data.clearFailedLogins(user.id);
-  return { token: newSession(user.id, now), user: publicUser(user) };
+  await data.clearFailedLogins(user.id);
+  return { token: await newSession(user.id, now), user: publicUser(user) };
 }
 
 /**
@@ -92,35 +90,39 @@ export async function login(email, password, now = Date.now()) {
  * Yanlış deneme, girişteki gibi sayılır ve kilitleyebilir. Başarılı olunca bu oturum dışındaki tüm oturumlar kapatılır.
  */
 export async function changePassword(user, currentPassword, newPassword, currentToken, now = Date.now()) {
-  const row = data.findUserAuthRow(user.id);
+  const row = await data.findUserAuthRow(user.id);
   if (!row) throw new HttpError(404, 'Kullanıcı bulunamadı');
   assertNotLocked(row, now);
   if (typeof currentPassword !== 'string' || !(await verifyPassword(currentPassword, row.password_hash))) {
-    data.recordFailedLogin(row.id, MAX_FAILED_LOGINS, LOCK_MS, now);
+    await data.recordFailedLogin(row.id, MAX_FAILED_LOGINS, LOCK_MS, now);
     throw bad('Mevcut şifre hatalı');
   }
   validatePassword(newPassword);
   if (newPassword === currentPassword) throw bad('Yeni şifre mevcut şifreyle aynı olamaz');
-  data.updateUserPassword(row.id, await hashPassword(newPassword));
-  data.clearFailedLogins(row.id);
+  await data.updateUserPassword(row.id, await hashPassword(newPassword));
+  await data.clearFailedLogins(row.id);
   return data.deleteSessionsOfUser(row.id, sha256(currentToken)); // kapatılan diğer oturum sayısı
 }
 
 // ---------- Express ara katmanları ----------
 
 /** Kimlik doğrulama: geçerli ve süresi dolmamış oturum belirteci yoksa 401. */
-export function requireAuth(req, res, next) {
-  const header = req.get('authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (token) {
-    const user = data.findUserBySession(sha256(token));
-    if (user) {
-      req.user = user;
-      req.token = token;
-      return next();
+export async function requireAuth(req, res, next) {
+  try {
+    const header = req.get('authorization') || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (token) {
+      const user = await data.findUserBySession(sha256(token));
+      if (user) {
+        req.user = user;
+        req.token = token;
+        return next();
+      }
     }
+    res.status(401).json({ error: 'Giriş yapmalısın' });
+  } catch (e) {
+    next(e);
   }
-  res.status(401).json({ error: 'Giriş yapmalısın' });
 }
 
 /** Yetkilendirme: kullanıcının rolü izin verilenlerden biri değilse 403. requireAuth'tan sonra kullanılır. */

@@ -30,7 +30,8 @@ npm test
 ```
 
 `ANTHROPIC_API_KEY` boşsa fiş okuma ve özet uçları 503 döner, geri kalanı çalışır.
-`CORS_ORIGIN` frontend'in adresiyle aynı olmalıdır.
+`CORS_ORIGIN` yalnızca frontend ayrı bir adresten sunuluyorsa gerekir (varsayılan kurulumda arayüz aynı sunucudan gelir).
+`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` tanımlıysa veritabanı yerel dosya yerine Turso'dadır (yayın için).
 
 ## Veritabanı ve veri erişim katmanı
 
