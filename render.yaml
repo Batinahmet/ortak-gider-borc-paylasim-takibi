@@ -6,6 +6,7 @@ services:
     name: ortak-gider
     runtime: node
     plan: free
+    region: frankfurt
     buildCommand: npm --prefix backend install
     startCommand: npm start
     healthCheckPath: /api/health
