@@ -14,7 +14,6 @@ const store = {
 };
 let token = store.get('token');
 let me = null;
-let aiAvailable = false;
 let notice = ''; // giriş ekranında bir kez gösterilen bilgi mesajı
 
 async function api(method, path, body) {
@@ -150,10 +149,6 @@ async function groupView(gid) {
     <div id="parts">${g.members.map((m) => `<label class="member-row"><input type="checkbox" checked value="${esc(m.id)}">${esc(nm(m.id))}<input type="number" step="0.01" min="0" placeholder="" hidden></label>`).join('')}</div>
     <button>Ekle</button><div id="eerr"></div></form></section>
 
-  <section class="card"><h2>🤖 Fişten ekle</h2>
-    <input id="file" type="file" accept="image/*"><button id="scan">Fişi oku</button><div id="scanout" class="muted"></div></section>
-
-  <section class="card"><h2>🤖 Borç özeti</h2><button class="ghost" id="sum">Özet oluştur</button><div id="sumout" class="muted"></div></section>
   <section class="card"><h2>Grup üyeleri</h2>${g.members.map((m) => `<div class="row"><span>${esc(nm(m.id))}${m.id === g.ownerId ? ' <span class="badge">sahip</span>' : ''}</span>
     ${g.ownerId === me.id && m.id !== me.id ? `<button class="small ghost" data-kick="${esc(m.id)}">Çıkar</button>` : ''}</div>`).join('')}
     <button class="ghost" id="leave">Gruptan ayrıl</button>
@@ -200,55 +195,6 @@ async function groupView(gid) {
     catch (err) { showError($('#eerr'), err); }
   };
 
-  // Fiş okuma (yapay zeka)
-  let scanned = null;
-  const drawScan = () => {
-    const out = $('#scanout');
-    const sum = scanned.items.reduce((a, i) => a + i.price, 0);
-    out.innerHTML = scanned.items.map((i, k) => `<div class="row"><span>${esc(i.name)}<br><b>${tl(i.price)}</b></span>
-        <select data-k="${k}"><option value="all" ${i.to === 'all' ? 'selected' : ''}>Herkes (ortak)</option>${g.members.map((m) => `<option value="${esc(m.id)}" ${i.to === m.id ? 'selected' : ''}>${esc(nm(m.id))} (kişisel)</option>`).join('')}</select></div>`).join('')
-      + (scanned.total && Math.abs(sum - scanned.total) > 1 ? `<p class="neg">Kalem toplamı ${tl(sum)}, fiş toplamı ${tl(scanned.total)}: farklı, kontrol et.</p>` : `<p class="pos">Toplam: ${tl(sum)}</p>`)
-      + `<select id="sp">${memberOpts(me.id)}</select><button id="save">Harcamaya ekle</button><div id="serr"></div>`;
-    out.querySelectorAll('select[data-k]').forEach((s) => {
-      s.onchange = async () => {
-        const it = scanned.items[s.dataset.k];
-        it.to = s.value;
-        const kind = s.value === 'all' ? 'ortak' : 'kisisel';
-        if (kind !== it.suggestion) {
-          it.suggestion = kind;
-          try { await api('POST', `/groups/${gid}/rules`, { item: it.name, kind }); } catch { /* kural kaydı başarısız olsa da devam */ }
-        }
-      };
-    });
-    $('#save').onclick = async () => {
-      try {
-        await api('POST', `/groups/${gid}/expenses`, {
-          title: `Fiş ${new Date().toLocaleDateString('tr-TR')}`, splitType: 'items', paidBy: $('#sp').value,
-          items: scanned.items.map((i) => ({ name: i.name, price: i.price, to: i.to === 'all' ? 'all' : [i.to] })),
-        });
-        scanned = null; out.textContent = 'Eklendi ✓'; refresh();
-      } catch (err) { showError($('#serr'), err); }
-    };
-  };
-  $('#scan').onclick = async () => {
-    const out = $('#scanout');
-    const file = $('#file').files[0];
-    if (!file) { out.textContent = 'Önce bir fiş fotoğrafı seç.'; return; }
-    out.className = 'muted'; out.textContent = 'Fiş okunuyor…';
-    try {
-      const image = await shrinkImage(file);
-      const r = await api('POST', `/groups/${gid}/receipts/scan`, { image, mediaType: 'image/jpeg' });
-      scanned = { total: r.total, items: r.items.map((i) => ({ ...i, to: i.suggestion === 'kisisel' ? me.id : 'all' })) };
-      if (!scanned.items.length) { out.textContent = 'Fişte kalem bulunamadı. Daha net bir fotoğraf dene.'; return; }
-      drawScan();
-    } catch (err) { showError(out, err); }
-  };
-  $('#sum').onclick = async () => {
-    const out = $('#sumout');
-    out.className = 'muted'; out.textContent = 'Hazırlanıyor…';
-    try { out.textContent = (await api('POST', `/groups/${gid}/summary`, {})).summary; } catch (err) { showError(out, err); }
-  };
-
   async function refresh() {
     const [bal, exp, act] = await Promise.all([
       api('GET', `/groups/${gid}/balances`), api('GET', `/groups/${gid}/expenses`), api('GET', `/groups/${gid}/activity`),
@@ -283,18 +229,6 @@ async function groupView(gid) {
   await refresh();
 }
 
-// Fotoğrafı sunucuya göndermeden önce küçült (hız ve boyut sınırı için)
-async function shrinkImage(file) {
-  const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
-  const c = document.createElement('canvas');
-  c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
-  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-  const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
-  const dataUrl = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
-  return String(dataUrl).split(',')[1];
-}
-
 // ---------- Yönlendirme ----------
 async function route() {
   try {
@@ -321,5 +255,4 @@ async function route() {
 }
 
 window.addEventListener('hashchange', route);
-fetch(`${API}/health`).then((r) => r.json()).then((h) => { aiAvailable = !!h.ai; }).catch(() => {});
 route();

@@ -60,9 +60,6 @@ test('uçtan uca: kayıt, grup, davet, harcama, bakiye, ödeme', async () => {
   assert.equal((await call('POST', `/groups/${g.id}/expenses`, { title: 'x', amount: 12.5 }, ali.token)).status, 400);
   assert.equal((await call('POST', `/groups/${g.id}/expenses`, { title: 'x', amount: 100, participants: ['yabanci'] }, ali.token)).status, 400);
 
-  // Yapay zeka anahtarı yoksa uçlar 503 verir
-  assert.equal((await call('POST', `/groups/${g.id}/summary`, {}, ali.token)).status, 503);
-
   // Kalem bazlı harcama + öğrenilen kural
   const items = await call('POST', `/groups/${g.id}/expenses`, {
     title: 'Fiş',

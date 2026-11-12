@@ -19,7 +19,7 @@ ortak-gider/
 - Gruplar, davet kodu, üyelik ve yetki (sahip / üye)
 - Harcama bölüşümü: eşit, yüzde, tam tutar, kalem bazlı (fişten)
 - Borç netleştirme (en az ödemeyle kapatma), ödeme kaydı, geçmiş, etkinlik akışı
-- Yapay zeka: fiş okuma ve borç özeti (Anthropic; anahtar yoksa bu uçlar kapalı)
+- Yapay zeka kullanılmadı; borç netleştirme tamamen algoritmik (kuruş tabanlı, kesin sonuç)
 - Admin paneli: kullanıcı listesi, rol değiştirme (sunucu tarafında korunur)
 - 50 test (tümünü geçer)
 
@@ -68,6 +68,46 @@ Backend'in `server.js` zaten `frontend/` klasörünü statik olarak sunuyor, bu 
 - **Diğer platformlar:** `npm install && npm start` çalıştırılmalı; `PORT` ortam değişkeni sunucu tarafından verilir.
 
 `.env` dosyasını asla repoya ekleme; sadece `.env.example`'i paylaş.
+
+## Hafta 8 – Ara Sürüm (Vize)
+
+Bu depo **Hafta 8“Ara Sürüm” gerekliliklerini karşılıyor**:
+
+| Gereklilik | Durum |
+|------------|-------|
+| Çalışan ara sürüm (modüller entegre) | ✅ Backend + frontend tek repoda, aynı porttan çalışıyor |
+| Bilinen hatalar giderilmesi | ✅ 50 test hepsi geçiyor; kod temizlendi |
+| Ara sürüm etiketleme (Git tag) | 👉 Aşağıdaki komutla yapılmalı |
+| Kısa demo senaryosu | ✅ Aşağıda belirtilmiştir |
+| AI kullanım günlüğü | ⚠️ AI entegrasyonu çıkarıldı, borç hesaplama algoritmik |
+
+### Demo senaryosu (ara sürüm)
+
+1. Terminalde backend klasörüne gir:
+   ```bash
+   cd backend
+   npm install
+   cp .env.example .env
+   npm run dev
+   ```
+2. Tarayıcıda `http://localhost:3000` aç.
+3. Kayıt ol / giriş yap (örnek: `ayse@example.com` / `demo12345`).
+4. Yeni grup oluştur (örnek: “Ev Arkadaşları”).
+5. Harcama ekle (örnek: “Market”, 124,85 ₺, eşit böl).
+2. Başka bir üye davet koduyla gruba katıl.
+3. “Kim kime ne kadar” bölümünde otomatik hesaplanan borçları gör.
+4. Ödeme kaydı yap (`Ödedim` butonu) → bakiyeler sıfırlanır.
+
+### Git tag ile ara sürüm etiketleme
+
+Depo kök dizininde (`borc takibi/`):
+
+```bash
+git add .
+git commit -m "Hafta 8: ara sürüm, tüm modüller entegre, AI kaldırıldı"
+git tag -a v1.0.0-arasurum -m "Hafta 8 Vize: çalışan ara sürüm"
+git push origin main --tags
+```
 
 ## Eski depolar
 

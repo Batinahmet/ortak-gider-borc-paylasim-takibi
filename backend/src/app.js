@@ -17,7 +17,7 @@ import {
   computeBalances,
   minimizeTransfers,
 } from './split.js';
-import { aiEnabled, scanReceipt, summarizeDebts } from './ai.js';
+
 
 const { logActivity } = data;
 const id = () => randomBytes(8).toString('hex');
@@ -73,7 +73,7 @@ export function createApp() {
   const api = express.Router();
   app.use('/api', api);
 
-  api.get('/health', (req, res) => res.json({ ok: true, ai: aiEnabled() }));
+  api.get('/health', (req, res) => res.json({ ok: true }));
 
   // ---------- Kimlik doğrulama ----------
   api.post(
@@ -308,10 +308,6 @@ export function createApp() {
     res.json({ activity: data.listActivities(req.group.id) });
   });
 
-  // ---------- Yapay zeka ----------
-  const needAi = (req, res, next) =>
-    aiEnabled() ? next() : res.status(503).json({ error: 'Yapay zeka kapalı: sunucuda ANTHROPIC_API_KEY tanımlı değil' });
-
   groupRoutes.get('/rules', (req, res) => {
     res.json({ rules: data.listRules(req.group.id) });
   });
@@ -322,26 +318,6 @@ export function createApp() {
     data.upsertRule(req.group.id, item, req.body.kind);
     res.json({ ok: true });
   });
-
-  groupRoutes.post('/receipts/scan', needAi, limit(15, 60_000), wrap(async (req, res) => {
-    const { image, mediaType } = req.body;
-    if (typeof image !== 'string' || image.length < 100 || image.length > 7_000_000) throw bad('Görsel geçersiz veya çok büyük');
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(mediaType)) throw bad('Desteklenmeyen görsel türü');
-    const rules = data.listRules(req.group.id);
-    const scan = await scanReceipt(image, mediaType, rules);
-    // Öğrenilmiş kural tam eşleşirse yapay zeka önerisinin yerine geçer.
-    const learned = new Map(rules.map((r) => [r.item, r.kind]));
-    const items = scan.items.map((i) => ({ ...i, suggestion: learned.get(i.name.toLowerCase().trim()) ?? i.suggestion }));
-    res.json({ items, total: scan.total });
-  }));
-
-  groupRoutes.post('/summary', needAi, limit(15, 60_000), wrap(async (req, res) => {
-    const names = Object.fromEntries(members(req.group.id).map((m) => [m.id, m.name]));
-    const { transfers } = currentBalances(req.group.id);
-    if (!transfers.length) return res.json({ summary: 'Borç yok, hesap denk.' });
-    const lines = transfers.map((t) => `${names[t.from]} -> ${names[t.to]}: ${tl(t.amount)}`);
-    res.json({ summary: await summarizeDebts(lines, req.user.name) });
-  }));
 
   // ---------- Hata yönetimi ----------
   api.use((req, res) => res.status(404).json({ error: 'Bulunamadı' }));
