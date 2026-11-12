@@ -1,0 +1,16 @@
+{
+  "name": "ortak-gider",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ortak gider paylaşımı ve borç takibi — tek depo (frontend + backend)",
+  "scripts": {
+    "start": "npm --prefix backend start",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npx serve -l 5173 frontend",
+    "seed": "npm --prefix backend run seed",
+    "test": "npm --prefix backend test"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
