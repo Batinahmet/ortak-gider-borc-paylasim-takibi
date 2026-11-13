@@ -33,7 +33,7 @@ const showError = (el, e) => { el.textContent = e.message || String(e); el.class
 // ---------- Giriş / kayıt ----------
 function authView(mode = 'login') {
   const reg = mode === 'register';
-  app.innerHTML = `<h1>Ortak Gider</h1><div class="card"><h2>${reg ? 'Kayıt ol' : 'Giriş yap'}</h2>
+  app.innerHTML = `<header class="hero"><h1>Ortak Gider</h1><p>Ortak harcamaları böl, kimin kime ne kadar borçlu olduğunu gör.</p></header><div class="card"><h2>${reg ? 'Kayıt ol' : 'Giriş yap'}</h2>
     <form id="f">${reg ? '<input name="name" placeholder="Adın" required maxlength="50">' : ''}
     <input name="email" type="email" placeholder="E-posta" required>
     <input name="password" id="pw" type="password" placeholder="Şifre (en az 8 karakter)" required minlength="8" maxlength="128" autocomplete="${reg ? 'new-password' : 'current-password'}">
@@ -57,8 +57,8 @@ function authView(mode = 'login') {
 // ---------- Üst çubuk (rol bilinçli) ----------
 const logout = async () => { try { await api('POST', '/auth/logout'); } catch { /* yoksay */ } token = null; me = null; store.del('token'); location.hash = ''; route(); };
 // Yönetici bağlantısı sadece görünürlük içindir; asıl yetki kontrolü sunucudadır (403).
-const topBar = () => `<div class="top"><h1>Merhaba ${esc(me.name)}${me.role === 'admin' ? ' <span class="badge">yönetici</span>' : ''}</h1>
-  <nav><a href="#/">Gruplar</a> <a href="#/hesap">Hesabım</a>${me.role === 'admin' ? ' <a href="#/admin">Yönetim</a>' : ''} <button class="ghost small" id="out">Çıkış</button></nav></div>`;
+const topBar = () => `<header class="hero"><div class="top"><h1>Merhaba ${esc(me.name)}${me.role === 'admin' ? ' <span class="badge">yönetici</span>' : ''}</h1>
+  <nav><a href="#/">Gruplar</a> <a href="#/hesap">Hesabım</a>${me.role === 'admin' ? ' <a href="#/admin">Yönetim</a>' : ''} <button class="ghost small" id="out">Çıkış</button></nav></div></header>`;
 const bindTopBar = () => { $('#out').onclick = logout; };
 
 // ---------- Hesabım ----------
@@ -137,7 +137,7 @@ async function groupView(gid) {
   const inviteLink = `${location.origin}${location.pathname}#join=${g.inviteCode}`;
   const memberOpts = (sel) => g.members.map((m) => `<option value="${esc(m.id)}" ${m.id === sel ? 'selected' : ''}>${esc(nm(m.id))}</option>`).join('');
 
-  app.innerHTML = `<a href="#/">← Gruplar</a><h1>${esc(g.name)}</h1>
+  app.innerHTML = `<header class="hero"><a class="back" href="#/">← Gruplar</a><h1>${esc(g.name)}</h1></header>
   <section class="card"><h2>Davet</h2><p>Kod: <b>${esc(g.inviteCode)}</b></p>
     <input id="link" readonly value="${esc(inviteLink)}"><button class="ghost" id="copy">Linki kopyala</button></section>
 
@@ -200,7 +200,7 @@ async function groupView(gid) {
       api('GET', `/groups/${gid}/balances`), api('GET', `/groups/${gid}/expenses`), api('GET', `/groups/${gid}/activity`),
     ]);
     $('#live').innerHTML = `
-      <section class="card"><h2>Kim kime ne kadar</h2>${bal.transfers.length
+      <section class="card receipt"><h2>Kim kime ne kadar</h2>${bal.transfers.length
         ? bal.transfers.map((t, k) => `<div class="row"><span>${esc(nm(t.from))} → ${esc(nm(t.to))}</span><span><b>${tl(t.amount)}</b>
             ${t.from === me.id ? `<button class="small ghost" data-pay="${k}">Ödedim</button>` : ''}</span></div>`).join('')
         : '<p class="muted">Borç yok, hesap denk.</p>'}</section>
@@ -249,7 +249,7 @@ async function route() {
     else if (location.hash === '#/admin') await adminView();
     else await homeView();
   } catch (e) {
-    app.innerHTML = `<h1>Ortak Gider</h1><p class="error">${esc(e.message)}</p><p class="muted">Backend çalışıyor mu? (${esc(API)})</p><button id="retry">Tekrar dene</button>`;
+    app.innerHTML = `<header class="hero"><h1>Ortak Gider</h1></header><div class="card"><p class="error">${esc(e.message)}</p><p class="muted">Backend çalışıyor mu? (${esc(API)})</p><button id="retry">Tekrar dene</button></div>`;
     $('#retry').onclick = route;
   }
 }
